@@ -1,6 +1,5 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC 
 # MAGIC # Benchmark for Analyzing Rules Engine Options
 # MAGIC 
 # MAGIC ## Goal
@@ -16,16 +15,17 @@
 # MAGIC   
 # MAGIC ## Requirements
 # MAGIC 
-# MAGIC * latency
+# MAGIC * latency - amenable to parallelization by Spark.
 # MAGIC * scalability in number of rules
 # MAGIC * cost
+# MAGIC * supports both batch and streaming modes
 # MAGIC 
 # MAGIC ## Use cases
 # MAGIC 1. Detection engine in an XDR-like scenario - typically a few thousand rules. Some rules to be applied at 5m, 15m, 60m, 24h periodicity
 # MAGIC 1. Auto-disposition engine in an XDR/SOAR-like scenario - applied to alerts to auto-disposition known true positive or false positive conditions
 # MAGIC 1. Alerting for fusion-center fraud detection or other fusion analytics.
 # MAGIC 
-# MAGIC ## Options
+# MAGIC ## Rules Engine Implementation Options
 # MAGIC 
 # MAGIC 1. Union-All SQL query (straw man)
 # MAGIC 2. Case-statement SQL query (with where-clause)
@@ -318,7 +318,7 @@ if use_deprecated:
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC # Rules engined based on Union All SQL
+# MAGIC # Rules engine based on Union All SQL
 # MAGIC 
 # MAGIC * Semantic: No early termination - all rules will be checked
 # MAGIC * SQL based
@@ -528,7 +528,7 @@ if cfg["run_durable_rules"]:
 # MAGIC 
 # MAGIC # UDF-based rules engine
 # MAGIC 
-# MAGIC * Semantic: No early termination - all rules will be checked
+# MAGIC * Semantic: No early termination - all rules will be checked. Early termination is an easy modification.
 # MAGIC * Python UDF-based - can be parallelized easily by spark
 # MAGIC * Not clear if pandas UDF will be any more efficient - TO INVESTIGATE
 # MAGIC * Can be used in DLT & Streaming as well
