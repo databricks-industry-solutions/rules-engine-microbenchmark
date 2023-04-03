@@ -1,21 +1,26 @@
-![image](https://raw.githubusercontent.com/databricks-industry-solutions/.github/main/profile/solacc_logo_wide.png)
+![image](https://github.com/lipyeowlim/public/raw/main/img/logo/databricks_cyber_logo_v1.png)
 
 [![CLOUD](https://img.shields.io/badge/CLOUD-ALL-blue?logo=googlecloud&style=for-the-badge)](https://cloud.google.com/databricks)
 [![POC](https://img.shields.io/badge/POC-10_days-green?style=for-the-badge)](https://databricks.com/try-databricks)
 
-## Business Problem
-<List of the business use case the solution accelerator address>
+# Fusion Rules Engines
+
+Contact Author: <lipyeow.lim@databricks.com>
+
+## Use Cases
+
+Personas: SOC analysts, detection engineers, security engineers, threat hunters.
+
+1. Detection engine in an XDR-like scenario - typically a few thousand rules. Some rules to be applied at 5m, 15m, 60m, 24h periodicity
+1. Auto-disposition engine in an XDR/SOAR-like scenario - applied to alerts to auto-disposition known true positive or false positive conditions
+1. Alerting for fusion-center fraud detection or other fusion analytics.
+1. An engine for regular threat hunting campaigns 
+
+## Reference Architecture
 
 ## Scope
-<How we expect the user to use this content>
 
-___
-<john.doe@databricks.com>
-
-___
-
-
-IMAGE TO REFERENCE ARCHITECTURE
+How we expect the user to use this content ...
 
 ___
 
@@ -23,7 +28,7 @@ ___
 
 | library                                | description             | license    | source                                              |
 |----------------------------------------|-------------------------|------------|-----------------------------------------------------|
-| PyYAML                                 | Reading Yaml files      | MIT        | https://github.com/yaml/pyyaml                      |
+| Durable rules | Rete's algorithm for inferencing | MIT        | https://github.com/jruizgit/rules  |
 
 ## Getting started
 
