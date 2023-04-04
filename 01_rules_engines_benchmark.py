@@ -653,11 +653,15 @@ display(one_node_metrics_df)
 
 # DBTITLE 1,Function for estimating monthly compute cost
 # does not include storage costs or ingest+ELT costs
-# freq is in minutes
+# freq is in minutes, freq==0 denotes streaming
 def estimate_monthly_cost(runtime_sec, ec2_type, freq=5):
-  assert runtime_sec < freq * 60
+  if freq==0.0:
+    monthly_compute_hrs = 24.0 * 30.0
+  else:
+    assert runtime_sec < freq * 60
+    monthly_compute_hrs = runtime_sec * 60.0 /freq * 24.0 * 30.0 / 60.0 / 60.0
   ec2_rate = {"i3.2xlarge": 0.624, "i3.xlarge": 0.312}
-  monthly_compute_hrs = runtime_sec * 60.0/freq * 24.0 * 30.0 / 60.0 / 60.0
+  
   assert (ec2_type in ec2_rate)
   aws = monthly_compute_hrs * ec2_rate[ec2_type]
   dbu_cost = monthly_compute_hrs * 5.8 * .15
@@ -670,6 +674,7 @@ def add_cost_col(metrics, ec2_type, freq, colidx=4):
   return None
 
 print(estimate_monthly_cost(16.0, "i3.xlarge"))
+print(estimate_monthly_cost(16.0, "i3.xlarge", 0))
 
 test_metrics = [
 ["case_sql",20,100000,500,15.810449838638306],
@@ -683,7 +688,6 @@ print(test_metrics)
 # 11.3 LTS (includes Apache Spark 3.3.0, Scala 2.12)
 # i3.2xlarge: AWS $0.624 per hour (charged at second granularity) https://aws.amazon.com/ec2/pricing/on-demand/
 # DB calc: https://www.databricks.com/product/pricing/product-pricing/instance-types
-
 
 one_node_metrics = [
 ["case_sql",20,100000,500,15.810449838638306],
@@ -725,6 +729,41 @@ one_node_metrics = [
 one_node_metrics_df = spark.createDataFrame(one_node_metrics, schema="id string, ncols int, nrows int, nqueries int, run_time double")
 
 display(one_node_metrics_df)
+
+# COMMAND ----------
+
+# DBTITLE 1,Sample Compute Cost Estimator
+import ipywidgets as widgets
+import seaborn as sns 
+from ipywidgets import interact
+
+runtime = {
+  "i3.2xlarge": { 
+    "500": 2.91202712059021,
+    "1000": 3.854057788848877,
+    "2000": 6.9562201499938965,
+    "4000": 16.615703105926514
+    },
+  "i3.xlarge": {
+    "500": 4.094915151596069, 
+    "1000": 5.894451379776001,
+    "2000": 10.941731929779053,
+    "4000": 24.700161457061768
+  }
+}
+
+@interact(ec2_type=["i3.xlarge", "i3.2xlarge"], nqueries=["500", "1000", "2000", "4000"])
+def plot_costs(ec2_type, nqueries):
+  runtime_sec = runtime[ec2_type][nqueries]
+  freq = [5, 15, 30, 60, 24*60]
+  cost_metrics = []
+  for f in freq:
+    cost = estimate_monthly_cost(runtime_sec, ec2_type, f)
+    cost_metrics.append([f, cost])
+
+  cost_df = spark.createDataFrame(cost_metrics, schema="freq int, cost double")
+  pdf = cost_df.toPandas()
+  pdf.plot(kind='bar', x="freq", y="cost", xlabel='Periodicity (minutes)', ylabel='monthly AWS+DB cost (USD)', rot=0)
 
 # COMMAND ----------
 
