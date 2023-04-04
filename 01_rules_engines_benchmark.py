@@ -638,6 +638,16 @@ print(metrics)
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC 
+# MAGIC # Sample results from 1-node clusters
+# MAGIC 
+# MAGIC * Assumes same data size to be scanned even for different batch periods/frequencies
+# MAGIC * Multi-tenancy approaches to be addressed in separate notebooks
+# MAGIC * Cost estimates does not include discounts, special rates, optimizations (eg. leveraging spot instances), storage costs, ingest & ELT costs.
+
+# COMMAND ----------
+
 # DBTITLE 1,Overview results for 300 rules on 1-node i3.xlarge spark cluster
 one_node_metrics = [
   ['union_all_sql', 20, 100000, 300, 507.4093222618103], 
@@ -659,22 +669,25 @@ def estimate_monthly_cost(runtime_sec, ec2_type, freq=5):
     monthly_compute_hrs = 24.0 * 30.0
   else:
     assert runtime_sec < freq * 60
-    monthly_compute_hrs = runtime_sec * 60.0 /freq * 24.0 * 30.0 / 60.0 / 60.0
+    nbatches_per_month = 24.0 * 30.0 * 60.0 / freq
+    monthly_compute_hrs = (runtime_sec / 60.0 / 60.0) * nbatches_per_month
   ec2_rate = {"i3.2xlarge": 0.624, "i3.xlarge": 0.312}
   
   assert (ec2_type in ec2_rate)
   aws = monthly_compute_hrs * ec2_rate[ec2_type]
   dbu_cost = monthly_compute_hrs * 5.8 * .15
-  return aws+dbu_cost
+  #print(f"{monthly_compute_hrs} -> {aws}, {dbu_cost}")
+  return [ aws, dbu_cost, aws+dbu_cost ]
 
 # side effect: alters metrics list of lists
 def add_cost_col(metrics, ec2_type, freq, colidx=4):
   for row in metrics:
-    row.append(estimate_monthly_cost(row[colidx], ec2_type, freq))
+    row.extend(estimate_monthly_cost(row[colidx], ec2_type, freq))
   return None
 
-print(estimate_monthly_cost(16.0, "i3.xlarge"))
 print(estimate_monthly_cost(16.0, "i3.xlarge", 0))
+print(estimate_monthly_cost(16.0, "i3.xlarge", 5))
+print(estimate_monthly_cost(8.0, "i3.2xlarge", 5))
 
 test_metrics = [
 ["case_sql",20,100000,500,15.810449838638306],
@@ -732,7 +745,7 @@ display(one_node_metrics_df)
 
 # COMMAND ----------
 
-# DBTITLE 1,Sample Compute Cost Estimator
+# DBTITLE 1,Sample Single-node Compute Cost Estimator
 import ipywidgets as widgets
 import seaborn as sns 
 from ipywidgets import interact
@@ -758,12 +771,13 @@ def plot_costs(ec2_type, nqueries):
   freq = [5, 15, 30, 60, 24*60]
   cost_metrics = []
   for f in freq:
-    cost = estimate_monthly_cost(runtime_sec, ec2_type, f)
-    cost_metrics.append([f, cost])
+    (aws, dbu, cost) = estimate_monthly_cost(runtime_sec, ec2_type, f)
+    cost_metrics.append([f, aws, dbu ])
 
-  cost_df = spark.createDataFrame(cost_metrics, schema="freq int, cost double")
+  cost_df = spark.createDataFrame(cost_metrics, schema="freq int, aws double, dbu double")
   pdf = cost_df.toPandas()
-  pdf.plot(kind='bar', x="freq", y="cost", xlabel='Periodicity (minutes)', ylabel='monthly AWS+DB cost (USD)', rot=0)
+  #pdf.plot(kind='bar', x="freq", y="cost", xlabel='Periodicity (minutes)', ylabel='monthly AWS+DB cost (USD)', rot=0)
+  pdf.plot(kind='bar', x="freq", stacked=True, xlabel='Periodicity (minutes)', ylabel='monthly cost (USD)', rot=0)
 
 # COMMAND ----------
 
