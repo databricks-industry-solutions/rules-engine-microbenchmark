@@ -18,6 +18,8 @@ Personas: SOC analysts, detection engineers, security engineers, threat hunters.
 
 ## Reference Architecture
 
+![image](https://github.com/lipyeowlim/public/raw/main/img/fusion-rules-engines.png)
+
 ## Scope
 
 How we expect the user to use this content ...
