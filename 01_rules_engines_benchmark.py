@@ -2,6 +2,7 @@
 # MAGIC %md
 # MAGIC # Benchmark for Analyzing Rules Engine Options
 # MAGIC 
+# MAGIC This is a standalone notebook.
 # MAGIC 
 # MAGIC ## Goal
 # MAGIC 
@@ -45,6 +46,10 @@
 # MAGIC %md
 # MAGIC 
 # MAGIC # Generates Benchmark Data and Rules
+# MAGIC 
+# MAGIC * A pool of `max_values` text values is generated using `Faker` with each value conforming to a specified `max_value_length`.
+# MAGIC * The event data is generated as a row of text fields. Each field is randomly chosen from the pool of text values. 
+# MAGIC * Each rule/query is generated as a conjunction of at most `max_terms` predicates. Each predicate being of the form `column_id = value`. The columns are randomly chosen and the value is randomly chosen from the pool of values.
 
 # COMMAND ----------
 
@@ -57,6 +62,7 @@ from pyspark.sql.types import *
 import pandas as pd
 from typing import Iterator
 from pyspark.sql.functions import col, pandas_udf, struct
+import uuid
 
 cfg = {
   "db": "lipyeow_ctx",
@@ -67,14 +73,15 @@ cfg = {
   "ncols": 20,
   "nrows": 400000,
   "max_values": 100,
+  "max_value_len": 30,
   "generate_data": False,
   # Rules/queries generation params
   "nqueries": 5000,
-  "max_value_len": 30,
   "max_terms": 10,
   "generate_queries": False,
   # The rule set size to run the benchmark on
   "test_nq": [500, 1000, 2000, 4000],
+  # The number of rows to run the detection on
   "test_nr": [50000, 100000, 200000, 400000],
   # The rules engines to run the benchmark on
   "run_union_all_sql": False,
@@ -94,6 +101,10 @@ fake = Faker()
 Faker.seed(0)
 
 cfg["values"] = [ fake.text(max_nb_chars=cfg["max_value_len"]) for i in range(cfg["max_values"]) ]
+
+sql=f"create database if not exists {cfg['db']}"
+print(sql)
+spark.sql(sql)
 
 
 # COMMAND ----------
@@ -277,6 +288,11 @@ if cfg["generate_data"]:
 # COMMAND ----------
 
 # DBTITLE 1,Sanity check the generated data
+sql = f"select * from {cfg['db']}.{cfg['events']} limit 5"
+
+print(sql)
+display(spark.sql(sql))
+
 sql = f"""
 select total_bytes, total_rows, total_bytes/total_rows as bytes_per_row
 from (
@@ -297,6 +313,13 @@ display(spark.sql(sql))
 
 if cfg["generate_queries"]:
   reload_queries(cfg)
+
+# COMMAND ----------
+
+sql = f"select * from {cfg['db']}.{cfg['detections']} limit 3"
+
+print(sql)
+display(spark.sql(sql))
 
 # COMMAND ----------
 
@@ -321,23 +344,14 @@ print(json.dumps(test_queries[:2], indent=2))
 
 # COMMAND ----------
 
-# DBTITLE 1,Read test rules into memory (deprecated bcoz of string size limit)
-use_deprecated = False
-if use_deprecated:
-  df = spark.sql(f"""select to_json(array_agg(struct(*))) as queries_json from lipyeow_ctx.detections where id < {cfg['test_nqueries']}""")
-  test_queries_str = df.first().queries_json
-  test_queries = json.loads(test_queries_str)
-  print(json.dumps(test_queries[0], indent=2))
-
-
-# COMMAND ----------
-
 # MAGIC %md
 # MAGIC # Option 1: Union All SQL
 # MAGIC 
 # MAGIC * Semantic: No early termination - all rules will be checked
 # MAGIC * SQL based
-# MAGIC * Extremely slow and is deprecated
+# MAGIC * Observations:
+# MAGIC   * The optimizer does not automatically do multi-query optimization.
+# MAGIC   * Extremely slow and is deprecated
 
 # COMMAND ----------
 
@@ -362,6 +376,10 @@ if cfg["run_union_all_sql"]:
 # MAGIC * Semantic: Early termination after highest priority rule fires
 # MAGIC * SQL based
 # MAGIC * Parallelizable
+# MAGIC * Observations:
+# MAGIC   * Decent performance
+# MAGIC   * At least it is doing a single pass over the data to process all the rules/queries
+# MAGIC   * Not extensible to the case where there is no early termination.
 
 # COMMAND ----------
 
@@ -389,7 +407,9 @@ if cfg["run_case_sql"]:
 # MAGIC * Based on durable_rules package that has a C-based engine
 # MAGIC * Able to do stateful forward-chaining inferencing (can be applied to auto APT attribution?)
 # MAGIC * No easy way to parallelize using UDF or spark at the moment - will be executed in-memory on the driver node.
-# MAGIC * Starts to hang when number of rules > 500
+# MAGIC * Observations:
+# MAGIC   * Starts to hang when number of rules > 500
+# MAGIC   * The state of the durable engines is held in memory and that is a limitation
 
 # COMMAND ----------
 
@@ -473,19 +493,16 @@ def detect(ruleset_name, rec_str):
 
 # COMMAND ----------
 
-import json
-
+# DBTITLE 1,Setup the rules
 nq = cfg["test_nq"][0]
 if nq>500:
   cfg["run_durable_rules"] = False
 else:
   rules_json = json.dumps(generate_rules_json(cfg, test_queries[:nq]), indent=2)
   print(rules_json)
-
-# COMMAND ----------
-
+  
 if cfg["run_durable_rules"]:
-  ruleset_name = "adr00"
+  ruleset_name = uuid.uuid4()
   rules = json.loads(rules_json)
   #print_ruleset(rules)
   create_ruleset (ruleset_name, rules)
@@ -582,21 +599,6 @@ where alerts is not null
 
 display(df)
 
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC 
-# MAGIC select *
-# MAGIC from lipyeow_ctx.detections
-# MAGIC limit 5
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC 
-# MAGIC select *
-# MAGIC from lipyeow_ctx.fake_events
 
 # COMMAND ----------
 
@@ -709,11 +711,6 @@ display(one_node_metrics_df.where("nqueries=4000"))
 
 # COMMAND ----------
 
-# MAGIC %md 
-# MAGIC # Compute Cost Estimation
-
-# COMMAND ----------
-
 # DBTITLE 1,Utility to extract the runtime model from current run
 pts = {}
 for r in one_node_metrics:
@@ -725,6 +722,22 @@ for r in one_node_metrics:
   if r[2]==400000:
     pts[r[0]][str(r[3])].extend([r[2], r[4]])
 print(json.dumps(pts, indent=2))
+
+# COMMAND ----------
+
+# MAGIC %md 
+# MAGIC # Compute Cost Estimation
+# MAGIC 
+# MAGIC The cost model
+# MAGIC * is currently limited to single-node clusters
+# MAGIC * assumes that the event data is ingested at a constant rate in rows per minute
+# MAGIC   * Moreover, the event data is already in the Databricks workspace.
+# MAGIC   * The data rate is specified in the input widget to the model.
+# MAGIC   * If there are 100K rows to be processed in a 5min batch process, there will be 200K rows to be processed if you were to use a 10min batch process instead.
+# MAGIC   * Using the default data generation config, each row is approximately 692 bytes, so 20K rows per minute corresponds to 13.8MB per minute (19.9GB per day).
+# MAGIC   * Input data rate can be minimized by appropriate filtering and aggregation.
+# MAGIC * is based on list prices for AWS EC2 on-demand rates and for Databrick job compute rates - does not account for special discounts or optimizations like using spot instances
+# MAGIC * does not include storage costs or ingestion/ELT costs.
 
 # COMMAND ----------
 
@@ -898,7 +911,7 @@ runtime_model = {
 
 # COMMAND ----------
 
-# DBTITLE 1,Function for estimating monthly compute cost
+# DBTITLE 1,Functions for estimating monthly compute cost
 # does not include storage costs or ingest+ELT costs
 # freq is in minutes, freq==0 denotes streaming
 def estimate_monthly_cost(runtime_sec, ec2_type, freq=5):
