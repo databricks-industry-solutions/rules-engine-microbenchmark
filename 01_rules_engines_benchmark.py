@@ -38,6 +38,18 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Download AWS.json
+# MAGIC %sh
+# MAGIC mkdir /dbfs/tmp/rules
+# MAGIC cd /dbfs/tmp/rules
+# MAGIC pwd
+# MAGIC echo "Removing and downloading aws.json"
+# MAGIC rm AWS.json
+# MAGIC wget https://www.databricks.com/data/pricing/AWS.json
+# MAGIC ls -l
+
+# COMMAND ----------
+
 # MAGIC %pip install faker
 # MAGIC %pip install durable_rules
 
@@ -106,6 +118,14 @@ sql=f"create database if not exists {cfg['db']}"
 print(sql)
 spark.sql(sql)
 
+
+# COMMAND ----------
+
+# DBTITLE 1,Load the aws dbu rates into a table
+tb=f"{getParam('db')}.aws"
+jsonfile="/tmp/rules/AWS.json"
+df = spark.read.format("json").load(jsonfile)
+df.write.option("mergeSchema", "true").mode("overwrite").saveAsTable(tb)
 
 # COMMAND ----------
 
@@ -726,7 +746,7 @@ print(json.dumps(pts, indent=2))
 # COMMAND ----------
 
 # MAGIC %md 
-# MAGIC # Compute Cost Estimation
+# MAGIC # Single-Node Compute Cost Estimation
 # MAGIC 
 # MAGIC The cost model
 # MAGIC * is currently limited to single-node clusters
@@ -911,6 +931,22 @@ runtime_model = {
 
 # COMMAND ----------
 
+# DBTITLE 1,Load a portion of the DBU pricing into memory
+sql = f"""
+select instance, dburate, hourrate
+from {cfg['db']}.aws
+where compute='Jobs Compute' and instance in ('i3.xlarge', 'i3.2xlarge', 'm5d.large') and plan = 'Premium'
+"""
+df=spark.sql(sql)
+display(df)
+
+dbu_rates = {}
+for (i, dr, hr) in df.collect():
+  dbu_rates[i] = float(dr) * float(hr)
+  #print(f"{i} -> {dr} {hr}")
+
+# COMMAND ----------
+
 # DBTITLE 1,Functions for estimating monthly compute cost
 # does not include storage costs or ingest+ELT costs
 # freq is in minutes, freq==0 denotes streaming
@@ -928,8 +964,9 @@ def estimate_monthly_cost(runtime_sec, ec2_type, freq=5):
   }
   
   assert (ec2_type in ec2_rate)
+  assert (ec2_type in dbu_rates)
   aws = monthly_compute_hrs * ec2_rate[ec2_type]
-  dbu_cost = monthly_compute_hrs * 5.8 * .15
+  dbu_cost = monthly_compute_hrs * dbu_rates[ec2_type]
   #print(f"{monthly_compute_hrs} -> {aws}, {dbu_cost}")
   return [ aws, dbu_cost, aws+dbu_cost ]
 
