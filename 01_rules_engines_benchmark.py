@@ -1,6 +1,6 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # Benchmark for Analyzing Rules Engine Options
+# MAGIC # Micro-benchmark for Analyzing Rules Engine Options
 # MAGIC 
 # MAGIC This is a standalone notebook.
 # MAGIC 
@@ -1029,6 +1029,12 @@ def plot_costs(ec2_type, nqueries, rows_per_min):
   cost_df = spark.createDataFrame(cost_metrics, schema="freq int, aws double, dbu double")
   pdf = cost_df.toPandas()
   pdf.plot(kind='bar', x="freq", stacked=True, xlabel='Periodicity (minutes)', ylabel='monthly cost (USD)', rot=0)
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC 
+# MAGIC show functions like '*_detect'
 
 # COMMAND ----------
 
