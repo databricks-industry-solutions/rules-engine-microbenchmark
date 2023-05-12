@@ -1,6 +1,6 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC # Setup required data sets and rules
 
 # COMMAND ----------
@@ -11,8 +11,7 @@
 
 ddls = [
 f"""DROP SCHEMA IF EXISTS {getParam('db')} CASCADE""",
-f"""CREATE SCHEMA IF NOT EXISTS {getParam('db')} LOCATION '{getParam('data_path')}'""" ,
-f"""USE {getParam('db')}""" 
+f"""CREATE SCHEMA IF NOT EXISTS {getParam('db')} LOCATION '{getParam('data_path')}'""" 
 ]
 
 for d in ddls:
@@ -22,7 +21,7 @@ for d in ddls:
 # COMMAND ----------
 
 # MAGIC %sh
-# MAGIC 
+# MAGIC
 # MAGIC mkdir /dbfs/tmp/rules
 # MAGIC cd /dbfs/tmp/rules
 # MAGIC pwd
@@ -30,9 +29,9 @@ for d in ddls:
 # MAGIC rm -rf *
 # MAGIC echo
 # MAGIC wget https://raw.githubusercontent.com/lipyeow-lim/security-datasets01/main/forensics-2021/logs.zip
-# MAGIC 
+# MAGIC
 # MAGIC unzip logs.zip
-# MAGIC 
+# MAGIC
 # MAGIC ls -lR
 
 # COMMAND ----------
@@ -52,21 +51,35 @@ for t in getParam('tables'):
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC 
-# MAGIC USE rules_lipyeow_lim
+
+spark.sql(f"""USE {getParam('db')}""")
+
 
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC 
+# MAGIC
+# MAGIC CREATE TABLE IF NOT EXISTS detections (
+# MAGIC   id int, 
+# MAGIC   freq_mins int, 
+# MAGIC   view_name string, 
+# MAGIC   query_py string, 
+# MAGIC   name string, 
+# MAGIC   meta string, 
+# MAGIC   state string
+# MAGIC );
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC
 # MAGIC select *
 # MAGIC from kerberos
 
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC 
+# MAGIC
 # MAGIC select window, `id.orig_h`, `id.resp_h`, count(*), array_agg(uri) as uri, array_agg(user_agent) as user_agent
 # MAGIC from http
 # MAGIC --where date_trunc('HOUR', ts::TIMESTAMP) = to_unix_timestamp('2021-12-03T19:00:00.000+000')
@@ -75,15 +88,15 @@ for t in getParam('tables'):
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC 
+# MAGIC
 # MAGIC select *
 # MAGIC from dns
 
 # COMMAND ----------
 
-# MAGIC 
+# MAGIC
 # MAGIC %sql
-# MAGIC 
+# MAGIC
 # MAGIC select window, `id.orig_h`, `id.resp_h`, count(*), array_distinct(array_agg(struct(query, answers))) as query_ans
 # MAGIC from dns
 # MAGIC group by window(ts::TIMESTAMP, '10 minutes' ), `id.orig_h`, `id.resp_h`

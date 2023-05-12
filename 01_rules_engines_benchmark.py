@@ -1,15 +1,15 @@
 # Databricks notebook source
 # MAGIC %md
 # MAGIC # Micro-benchmark for Analyzing Rules Engine Options
-# MAGIC 
+# MAGIC
 # MAGIC This is a standalone notebook.
-# MAGIC 
+# MAGIC
 # MAGIC ## Goal
-# MAGIC 
+# MAGIC
 # MAGIC Find the most efficient and lowest cost (DBUs) approach for implementing a rules engine (eg. detection engine) for cybersecurity applications.
-# MAGIC 
+# MAGIC
 # MAGIC <img src="https://raw.githubusercontent.com/lipyeowlim/public/main/img/fusion-rules/rules_engine.png" width="650">
-# MAGIC 
+# MAGIC
 # MAGIC ## Rules engine assumptions
 # MAGIC * Input: 
 # MAGIC   * table of rules (antecedent, consequent) that can be updated by users at any time
@@ -18,19 +18,19 @@
 # MAGIC   * table/stream of rule triggers/hits - each hit includes rule ID, antecedent, raw data for traceability
 # MAGIC   
 # MAGIC ## Requirements
-# MAGIC 
+# MAGIC
 # MAGIC * latency - amenable to parallelization by Spark.
 # MAGIC * scalability in number of rules
 # MAGIC * cost
 # MAGIC * supports both batch and streaming modes
-# MAGIC 
+# MAGIC
 # MAGIC ## Use cases
 # MAGIC 1. Detection engine in an XDR-like scenario - typically a few thousand rules. Some rules to be applied at 5m, 15m, 60m, 24h periodicity
 # MAGIC 1. Auto-disposition engine in an XDR/SOAR-like scenario - applied to alerts to auto-disposition known true positive or false positive conditions
 # MAGIC 1. Alerting for fusion-center fraud detection or other fusion analytics.
-# MAGIC 
+# MAGIC
 # MAGIC ## Rules Engine Implementation Options
-# MAGIC 
+# MAGIC
 # MAGIC 1. Union-All SQL query (straw man)
 # MAGIC 2. Case-statement SQL query (with where-clause)
 # MAGIC 3. Durable rules package (Rete's Algorithm implemented in C) - not easily parallelizable.
@@ -56,9 +56,9 @@
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC # Generates Benchmark Data and Rules
-# MAGIC 
+# MAGIC
 # MAGIC * A pool of `max_values` text values is generated using `Faker` with each value conforming to a specified `max_value_length`.
 # MAGIC * The event data is generated as a row of text fields. Each field is randomly chosen from the pool of text values. 
 # MAGIC * Each rule/query is generated as a conjunction of at most `max_terms` predicates. Each predicate being of the form `column_id = value`. The columns are randomly chosen and the value is randomly chosen from the pool of values.
@@ -122,7 +122,7 @@ spark.sql(sql)
 # COMMAND ----------
 
 # DBTITLE 1,Load the aws dbu rates into a table
-tb=f"{getParam('db')}.aws"
+tb=f"{cfg['db']}.aws"
 jsonfile="/tmp/rules/AWS.json"
 df = spark.read.format("json").load(jsonfile)
 df.write.option("mergeSchema", "true").mode("overwrite").saveAsTable(tb)
@@ -366,7 +366,7 @@ print(json.dumps(test_queries[:2], indent=2))
 
 # MAGIC %md
 # MAGIC # Option 1: Union All SQL
-# MAGIC 
+# MAGIC
 # MAGIC * Semantic: No early termination - all rules will be checked
 # MAGIC * SQL based
 # MAGIC * Observations:
@@ -390,9 +390,9 @@ if cfg["run_union_all_sql"]:
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC # Option 2: Case Statement SQL
-# MAGIC 
+# MAGIC
 # MAGIC * Semantic: Early termination after highest priority rule fires
 # MAGIC * SQL based
 # MAGIC * Parallelizable
@@ -420,9 +420,9 @@ if cfg["run_case_sql"]:
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC # Option 3: `durable_rules` python package 
-# MAGIC 
+# MAGIC
 # MAGIC * Semantic: Early termination after highest priority rule fires
 # MAGIC * Based on durable_rules package that has a C-based engine
 # MAGIC * Able to do stateful forward-chaining inferencing (can be applied to auto APT attribution?)
@@ -576,9 +576,9 @@ if cfg["run_durable_rules"]:
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC # Option 4: Python UDF (includes pandas UDF)
-# MAGIC 
+# MAGIC
 # MAGIC * Semantic: No early termination - all rules will be checked. Early termination is an easy modification.
 # MAGIC * Python UDF-based - can be parallelized easily by spark
 # MAGIC * Not clear if pandas UDF will be any more efficient - TO INVESTIGATE
@@ -668,9 +668,9 @@ print(metrics)
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC # Sample results from 1-node clusters
-# MAGIC 
+# MAGIC
 # MAGIC * Assumes same data size to be scanned even for different batch periods/frequencies
 # MAGIC * Multi-tenancy approaches to be addressed in separate notebooks
 # MAGIC * Cost estimates does not include discounts, special rates, optimizations (eg. leveraging spot instances), storage costs, ingest & ELT costs.
@@ -747,7 +747,7 @@ print(json.dumps(pts, indent=2))
 
 # MAGIC %md 
 # MAGIC # Single-Node Compute Cost Estimation
-# MAGIC 
+# MAGIC
 # MAGIC The cost model
 # MAGIC * is currently limited to single-node clusters
 # MAGIC * assumes that the event data is ingested at a constant rate in rows per minute
@@ -1033,7 +1033,7 @@ def plot_costs(ec2_type, nqueries, rows_per_min):
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC 
+# MAGIC
 # MAGIC show functions like '*_detect'
 
 # COMMAND ----------
