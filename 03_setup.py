@@ -100,6 +100,7 @@ spark.sql(f"""USE {getParam('db')}""")
 # MAGIC select window, `id.orig_h`, `id.resp_h`, count(*), array_distinct(array_agg(struct(query, answers))) as query_ans
 # MAGIC from dns
 # MAGIC group by window(ts::TIMESTAMP, '10 minutes' ), `id.orig_h`, `id.resp_h`
+# MAGIC
 
 # COMMAND ----------
 

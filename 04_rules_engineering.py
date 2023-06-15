@@ -1,6 +1,6 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC # IDE for rules engineering & testing
 
 # COMMAND ----------
@@ -70,7 +70,7 @@ display(df)
 # COMMAND ----------
 
 # MAGIC %sql 
-# MAGIC 
+# MAGIC
 # MAGIC select * from http;
 
 # COMMAND ----------
