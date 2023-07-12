@@ -53,6 +53,21 @@
 
 # COMMAND ----------
 
+dbutils.widgets.removeAll()
+flags = { 
+         "Load data": True,
+         "Load queries": True, 
+         "Run union all SQL": False, 
+         "Run case SQL": False, 
+         "Run durable rules": False
+        }
+valmap = { "True": True, "False": False }
+for (wid, _) in flags.items():
+  dbutils.widgets.dropdown(wid, str(flags[wid]), ["True", "False"])
+  flags[wid] = valmap[dbutils.widgets.get(wid)]
+
+# COMMAND ----------
+
 # DBTITLE 1,Setup config parameters
 from faker import Faker
 import random
@@ -74,19 +89,19 @@ cfg = {
   "nrows": 400000,
   "max_values": 100,
   "max_value_len": 30,
-  "generate_data": True,
+  "generate_data": flags["Load data"],
   # Rules/queries generation params
   "nqueries": 5000,
   "max_terms": 10,
-  "generate_queries": True,
+  "generate_queries": flags["Load queries"],
   # The rule set size to run the benchmark on
   "test_nq": [500, 1000],
   # The number of rows to run the detection on
   "test_nr": [50000, 100000],
   # The rules engines to run the benchmark on
-  "run_union_all_sql": False,
-  "run_case_sql": False,
-  "run_durable_rules": False
+  "run_union_all_sql": flags["Run union all SQL"],
+  "run_case_sql": flags["Run case SQL"],
+  "run_durable_rules": flags["Run durable rules"]
 }
 
 cfg["cols"] = [ cfg["col_prefix"] + "{:03d}".format(i) for i in range(cfg["ncols"]) ]
@@ -193,7 +208,7 @@ def reload_data(cfg):
   ddl = f"drop table if exists {cfg['db']}.{cfg['events']}"
   spark.sql(ddl)
   spark.sql(cfg["ddl"])
-  batch_size = 5000
+  batch_size = 10000
   nbatches = int(cfg["nrows"] / batch_size)
   for i in range(nbatches):
     print(f"ins batch #{str(i)}")
@@ -269,14 +284,14 @@ print(json.dumps(queries[:3], indent=2))
 print("=========\nUnion all SQL\n=========")
 print( generate_union_all_sql(cfg, queries[:3]))
 
-print("=========\nInsert SQL\n=========")
-print( generate_insert(cfg, 1, 3))
-
 print("=========\nCase SQL\n=========")
 print( generate_case_sql(cfg, queries[:3]))
 
 print("=========\nUDF SQL\n=========")
 print( generate_udf_code(queries[:3]))
+
+print("=========\nInsert SQL\n=========")
+print( generate_insert(cfg, 1, 3))
 
 
 # COMMAND ----------
