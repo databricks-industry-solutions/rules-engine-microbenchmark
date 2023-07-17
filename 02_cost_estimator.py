@@ -32,14 +32,10 @@
 
 # COMMAND ----------
 
-cfg = {
-  "db": "lipyeow_ctx"
-}
-
-tb=f"{cfg['db']}.aws"
+tb="aws"
 jsonfile="/tmp/rules/AWS.json"
 df = spark.read.format("json").load(jsonfile)
-df.write.option("mergeSchema", "true").mode("overwrite").saveAsTable(tb)
+df.createOrReplaceTempView(tb)
 
 # COMMAND ----------
 
@@ -216,7 +212,7 @@ runtime_model = {
 # DBTITLE 1,Load a portion of the DBU pricing into memory
 sql = f"""
 select instance, dburate, hourrate
-from {cfg['db']}.aws
+from {tb}
 where compute='Jobs Compute' and instance in ('i3.xlarge', 'i3.2xlarge', 'm5d.large') and plan = 'Premium'
 """
 df=spark.sql(sql)
@@ -311,3 +307,7 @@ def plot_costs(ec2_type, nqueries, rows_per_min):
   cost_df = spark.createDataFrame(cost_metrics, schema="freq int, aws double, dbu double")
   pdf = cost_df.toPandas()
   pdf.plot(kind='bar', x="freq", stacked=True, xlabel='Periodicity (minutes)', ylabel='monthly cost (USD)', rot=0)
+
+# COMMAND ----------
+
+

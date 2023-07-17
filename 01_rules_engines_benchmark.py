@@ -53,6 +53,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Setup widgets for feature flags
 dbutils.widgets.removeAll()
 flags = { 
          "Load data": True,
@@ -174,22 +175,22 @@ def generate_union_all_sql(cfg, queries):
 from {cfg['db']}.{cfg['events']}
 where {q['sql']}"""
     sql_queries.append(sql)
-  return "\nunion all\n".join(sql_queries)
+  return "\n\nunion all\n\n".join(sql_queries)
 
 def generate_case_sql(cfg, queries):
   where = []
   case = [] 
   for q in queries:
-    where.append("(" + q["sql"] + ")")
-    case.append(f"when {q['sql']} then {q['id']}")
-  case_str = "case\n" + "\n".join(case) + "\nelse null\nend as detection_id"
+    where.append("\n  (" + q["sql"] + ")\n")
+    case.append(f"    when {q['sql']} then {q['id']}")
+  case_str = "case\n" + "\n\n".join(case) + "\n    else null\n  end as detection_id"
   sql = f"""
-  select 
-    {case_str},
-    to_json(struct(*)) as raw
-  from {cfg['db']}.{cfg['events']}
-  where {' or '.join(where)}
-  """  
+select 
+  {case_str},
+  to_json(struct(*)) as raw
+from {cfg['db']}.{cfg['events']}
+where {'  or '.join(where)}
+"""  
   return sql
 
 def generate_rules_json(cfg, queries):
@@ -243,12 +244,14 @@ def generate_udf_code(queries):
     alert_str = json.dumps({ "id": q["id"], "desc": "bad alert", "rule": q["py"] })
     rule=f"""  if {q['py'].replace('m[', 'rec[')}:
     result.append('{alert_str}')
+
 """
     rule_str += rule
   return f"""
 def udf_detect(rec_str):
   rec = json.loads(rec_str)
   result = []
+
 {rule_str}  
   if len(result)==0:
     return None
@@ -281,16 +284,16 @@ queries = generate_query_workload(cfg)
 print("=========\nQueries\n=========")
 print(json.dumps(queries[:3], indent=2))
 
-print("=========\nUnion all SQL\n=========")
+print("\n=========\nUnion all SQL\n=========\n")
 print( generate_union_all_sql(cfg, queries[:3]))
 
-print("=========\nCase SQL\n=========")
+print("\n=========\nCase SQL\n=========\n")
 print( generate_case_sql(cfg, queries[:3]))
 
-print("=========\nUDF SQL\n=========")
+print("\n=========\nUDF SQL\n=========\n")
 print( generate_udf_code(queries[:3]))
 
-print("=========\nInsert SQL\n=========")
+print("\n=========\nInsert SQL\n=========")
 print( generate_insert(cfg, 1, 3))
 
 
@@ -331,6 +334,7 @@ if cfg["generate_queries"]:
 
 # COMMAND ----------
 
+# DBTITLE 1,Sanity check the detections table
 sql = f"select * from {cfg['db']}.{cfg['detections']} limit 3"
 
 print(sql)
