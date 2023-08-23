@@ -3,30 +3,34 @@
 [![CLOUD](https://img.shields.io/badge/CLOUD-ALL-blue?logo=googlecloud&style=for-the-badge)](https://cloud.google.com/databricks)
 [![POC](https://img.shields.io/badge/POC-10_days-green?style=for-the-badge)](https://databricks.com/try-databricks)
 
-# Fusion Rules Engines
+# Rules Engine Microbenchmark
 
 Contact Author: <lipyeow.lim@databricks.com>
 
 ## Use Cases
 
-Personas: SOC analysts, detection engineers, security engineers, threat hunters.
+Personas: security engineers, software architects
 
+1. A microbenchmark for evaluating rules engine implementation on top of Databricks Lakehouse.
+
+Rules engines have wide applicability in both cybersecurity and observability domains:
 1. Detection engine in an XDR-like scenario - typically a few thousand rules. Some rules to be applied at 5m, 15m, 60m, 24h periodicity
 1. Auto-disposition engine in an XDR/SOAR-like scenario - applied to alerts to auto-disposition known true positive or false positive conditions
 1. Alerting for fusion-center fraud detection or other fusion analytics.
 1. An engine for regular threat hunting campaigns 
 
-## Reference Architecture
+## Reference Architecture using Rules Engines in Cybersecurity Operations
 
 ![image](https://github.com/lipyeowlim/public/raw/main/img/fusion-rules/fusion_rules_engines.png)
 
 ## Scope
 
-How we expect the user to use this content ...
+1. Users can test their rules engine implementation ideas by modifying and using the microbenchmark notebook
+2. Users can modify the cost estimation notebook to perform cost estimates of their rules engine implementation.
 
 ___
 
-&copy; 2022 Databricks, Inc. All rights reserved. The source in this notebook is provided subject to the Databricks License [https://databricks.com/db-license-source].  All included or referenced third party libraries are subject to the licenses set forth below.
+&copy; 2023 Databricks, Inc. All rights reserved. The source in this notebook is provided subject to the Databricks License [https://databricks.com/db-license-source].  All included or referenced third party libraries are subject to the licenses set forth below.
 
 | library                                | description             | license    | source                                              |
 |----------------------------------------|-------------------------|------------|-----------------------------------------------------|
